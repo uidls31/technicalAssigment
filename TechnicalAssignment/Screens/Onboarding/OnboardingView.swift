@@ -91,3 +91,4 @@ class OnboardingView: UIView, OnboardingViewProtocol {
         onTapContinue?()
     }
 }
+
