@@ -1,14 +1,21 @@
 import UIKit
 
+protocol OnboardingViewControllerOutput: AnyObject {
+    func goToMainScreen()
+}
+
 class OnboardingViewController: UIViewController {
     
+    weak var output: OnboardingViewControllerOutput?
     var customOnboardingView: OnboardingViewProtocol
     let viewModelOnboarding: OnboardingViewModelProtocol
     
     init(customOnboardingView: OnboardingViewProtocol,
-         viewModelOnboarding: OnboardingViewModelProtocol) {
+         viewModelOnboarding: OnboardingViewModelProtocol,
+         output: OnboardingViewControllerOutput?) {
         self.customOnboardingView = customOnboardingView
         self.viewModelOnboarding = viewModelOnboarding
+        self.output = output
         super.init(nibName: nil, bundle: nil)
     }
     
@@ -34,11 +41,14 @@ class OnboardingViewController: UIViewController {
     
     private func setupBinding() {
         viewModelOnboarding.onScrollToItem = { [weak self] index in
-            self?.customOnboardingView.scroll(to: index)
+            guard let self else { return }
+            customOnboardingView.scroll(to: index)
         }
         
         viewModelOnboarding.onFinishOnboarding = { [weak self] in
-            self?.navigationController?.pushViewController(MainScreenViewController(), animated: true)
+            guard let self else { return }
+//            self?.navigationController?.pushViewController(MainScreenViewController(), animated: true)
+            output?.goToMainScreen()
         }
     }
     
