@@ -34,13 +34,27 @@ class MainScreenViewController: UIViewController {
         setupActions()
         setupBindings()
         viewModelMainScreen.getStorageInfo()
-        viewModelMainScreen.photoLibraryService.requestAccess { [weak self] isGranted in
-            guard let self else { return }
-            if isGranted {
-                self.viewModelMainScreen.getMediaInfo()
+        requestAndLoadMedia()
+    }
+    
+    private func requestAndLoadMedia() {
+        updateProgress()
+        viewModelMainScreen.photoLibraryService.requestAccessWithSmartDelay { [weak self] isGranted in
+            guard let self = self, isGranted else { return }
+            self.viewModelMainScreen.getMediaInfo()
+            
+            DispatchQueue.main.async {
                 self.customViewMainScreen.updateLocks(isLocked: isGranted)
-                self.customViewMainScreen.updateProgress(value: viewModelMainScreen.progressValue, text: viewModelMainScreen.progressText)
             }
+        }
+    }
+    
+    private func updateProgress() {
+        DispatchQueue.main.async {
+            self.customViewMainScreen.updateProgress(
+                value: self.viewModelMainScreen.progressValue,
+                text: self.viewModelMainScreen.progressText
+            )
         }
     }
     

@@ -206,7 +206,6 @@ class MainScreenView: UIView, MainScreenViewProtocol {
         stackView.spacing = UIScreen.main.isProMax ? 24 : 8
         stackView.alignment = .center
         stackView.distribution = .fill
-        stackView.backgroundColor = .red
         stackView.translatesAutoresizingMaskIntoConstraints = false
         return stackView
     }()

@@ -16,6 +16,7 @@ protocol CoordinatorOutputProtocol: AnyObject {
 }
 
 class AppCoordinator: AppCoordinatorProtocol {
+    let mediaListService: MediaListServiceProtocol
     let factory: AppCoordinatorFactoryProtocol
     let storageService: StorageServiceProtocol
     let photoLibraryService: PhotoLibraryServiceProtocol
@@ -32,12 +33,14 @@ class AppCoordinator: AppCoordinatorProtocol {
          navigation: UINavigationController,
          factory: AppCoordinatorFactoryProtocol,
          storageService: StorageServiceProtocol,
-         photoLibraryService: PhotoLibraryServiceProtocol) {
+         photoLibraryService: PhotoLibraryServiceProtocol,
+         mediaListService: MediaListServiceProtocol) {
         self.window = window
         self.navigation = navigation
         self.factory = factory
         self.storageService = storageService
         self.photoLibraryService = photoLibraryService
+        self.mediaListService = mediaListService
     }
     
     func start() {
@@ -61,7 +64,8 @@ class AppCoordinator: AppCoordinatorProtocol {
     
     func showMediaList() {
         let coordinator = factory.createMediaListCoordinator(window: window,
-                                                             navigation: navigation)
+                                                             navigation: navigation,
+                                                             mediaListService: mediaListService)
         mediaListCoordinator = coordinator
         coordinator.start()
         
