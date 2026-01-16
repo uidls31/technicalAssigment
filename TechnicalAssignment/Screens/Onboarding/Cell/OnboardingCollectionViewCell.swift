@@ -79,7 +79,7 @@ class OnboardingCollectionViewCell: UICollectionViewCell {
     
     private func setupConstraints() {
         NSLayoutConstraint.activate([
-            screenImage.centerYAnchor.constraint(equalTo: contentView.centerYAnchor, constant: UIScreen.main.isSmallScreen ? -70 : -90),
+            screenImage.centerYAnchor.constraint(equalTo: contentView.centerYAnchor, constant: UIScreen.main.isSmallScreen ? -70 : -60),
             screenImage.centerXAnchor.constraint(equalTo: contentView.centerXAnchor),
             screenImage.heightAnchor.constraint(equalTo: contentView.heightAnchor, multiplier: 0.6),
             screenImage.widthAnchor.constraint(equalTo: contentView.heightAnchor, multiplier: 0.5),

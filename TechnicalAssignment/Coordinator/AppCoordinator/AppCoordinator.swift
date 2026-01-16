@@ -2,7 +2,7 @@ import UIKit
 
 enum CoordinatorType {
     case onboarding
-//    case main
+    // case main // пока не используется
 }
 
 protocol AppCoordinatorProtocol {
@@ -15,36 +15,56 @@ protocol CoordinatorOutputProtocol: AnyObject {
     func finishCoordinator(_ type: CoordinatorType)
 }
 
-
-
 class AppCoordinator: AppCoordinatorProtocol {
     let factory: AppCoordinatorFactoryProtocol
+    let storageService: StorageServiceProtocol
+    let photoLibraryService: PhotoLibraryServiceProtocol
     
     var window: UIWindow
     var navigation: UINavigationController
     
-    private var currentCoordinator: AppCoordinatorProtocol?
+    // Держим сильные ссылки на активные координаторы
+    private var onboardingCoordinator: AppCoordinatorProtocol?
+    private var mainCoordinator: AppCoordinatorProtocol?
+    private var mediaListCoordinator: AppCoordinatorProtocol?
     
     init(window: UIWindow,
          navigation: UINavigationController,
-         factory: AppCoordinatorFactoryProtocol) {
+         factory: AppCoordinatorFactoryProtocol,
+         storageService: StorageServiceProtocol,
+         photoLibraryService: PhotoLibraryServiceProtocol) {
         self.window = window
         self.navigation = navigation
         self.factory = factory
+        self.storageService = storageService
+        self.photoLibraryService = photoLibraryService
     }
     
-    
     func start() {
-        currentCoordinator = factory.createOnboardingCoordinator(window: window,
-                                                                 navigation: navigation,
-                                                                 outputApp: self)
-        currentCoordinator?.start()
+        let coordinator = factory.createOnboardingCoordinator(window: window,
+                                                              navigation: navigation,
+                                                              outputApp: self)
+        onboardingCoordinator = coordinator
+        coordinator.start()
     }
     
     func showMainScreen() {
-        currentCoordinator = factory.createMainScreenCoordinator(window: window,
-                                                                 navigation: navigation)
-        currentCoordinator?.start()
+        let coordinator = factory.createMainScreenCoordinator(window: window,
+                                                              navigation: navigation,
+                                                              storageService: storageService,
+                                                              photoLibraryService: photoLibraryService,
+                                                              goToMediaDelegate: self)
+        mainCoordinator = coordinator
+        coordinator.start()
+        onboardingCoordinator = nil
+    }
+    
+    func showMediaList() {
+        let coordinator = factory.createMediaListCoordinator(window: window,
+                                                             navigation: navigation)
+        mediaListCoordinator = coordinator
+        coordinator.start()
+        
     }
 }
 
@@ -55,6 +75,10 @@ extension AppCoordinator: CoordinatorOutputProtocol {
             showMainScreen()
         }
     }
-    
-    
+}
+
+extension AppCoordinator: MainScreenCoordinatorProtocol {
+    func goToMedia() {
+        showMediaList()
+    }
 }

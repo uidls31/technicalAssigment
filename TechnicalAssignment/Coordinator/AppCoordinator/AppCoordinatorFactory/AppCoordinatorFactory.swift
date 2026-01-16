@@ -5,7 +5,12 @@ protocol AppCoordinatorFactoryProtocol {
                                      navigation: UINavigationController,
                                      outputApp: (any CoordinatorOutputProtocol)?) -> AppCoordinatorProtocol
     func createMainScreenCoordinator(window: UIWindow,
-                                     navigation: UINavigationController) -> AppCoordinatorProtocol
+                                     navigation: UINavigationController,
+                                     storageService: any StorageServiceProtocol,
+                                     photoLibraryService: any PhotoLibraryServiceProtocol,
+                                     goToMediaDelegate: (any MainScreenCoordinatorProtocol)?) -> AppCoordinatorProtocol
+    func createMediaListCoordinator(window: UIWindow,
+                                    navigation: UINavigationController,) -> AppCoordinatorProtocol
 }
 
 struct AppCoordinatorFactoryImp: AppCoordinatorFactoryProtocol {
@@ -21,11 +26,26 @@ struct AppCoordinatorFactoryImp: AppCoordinatorFactoryProtocol {
     }
     
     func createMainScreenCoordinator(window: UIWindow,
-                                     navigation: UINavigationController) -> AppCoordinatorProtocol {
+                                     navigation: UINavigationController,
+                                     storageService: any StorageServiceProtocol,
+                                     photoLibraryService: any PhotoLibraryServiceProtocol,
+                                     goToMediaDelegate: (any MainScreenCoordinatorProtocol)?) -> AppCoordinatorProtocol {
         let factory = MainCoordinatorFactoryImp()
         let coordinator = MainScreenCoordinator(window: window,
                                                 navigation: navigation,
-                                                factory: factory)
+                                                factory: factory,
+                                                storageService: storageService,
+                                                photoLibraryService: photoLibraryService,
+                                                goToMediaDelegate: goToMediaDelegate)
+        return coordinator
+    }
+    
+    func createMediaListCoordinator(window: UIWindow,
+                                    navigation: UINavigationController) -> AppCoordinatorProtocol {
+        let factory = MediaListFactoryImp()
+        let coordinator = MediaListCoordinator(window: window,
+                                               navigation: navigation,
+                                               factory: factory)
         return coordinator
     }
 }

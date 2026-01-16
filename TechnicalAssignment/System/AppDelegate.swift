@@ -2,20 +2,16 @@ import UIKit
 
 @main
 class AppDelegate: UIResponder, UIApplicationDelegate {
-//    let onboardingModels: [OnboardingModel] = OnboardingModel.setupModels()
-//    let onboardingView: OnboardingViewProtocol = OnboardingView()
-//    lazy var viewModelOnboarding: OnboardingViewModelProtocol = OnboardingViewModel(onboardingArray: onboardingModels)
 
     var window: UIWindow?
     var appCoordinator: AppCoordinatorProtocol?
     let navigation = UINavigationController()
+    let storageService: StorageServiceProtocol = StorageService()
+    let photoLibraryService: PhotoLibraryServiceProtocol = PhotoLibraryService()
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         window = UIWindow(frame: UIScreen.main.bounds)
         window?.overrideUserInterfaceStyle = .light
-//        let navigation = UINavigationController(rootViewController:OnboardingViewController(customOnboardingView: onboardingView, viewModelOnboarding: viewModelOnboarding) )
-//        window?.rootViewController = navigation
-//        window?.makeKeyAndVisible()
         startAppCoordinator()
         return true
     }
@@ -24,7 +20,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         let factory = AppCoordinatorFactoryImp()
         appCoordinator = AppCoordinator(window: window ?? UIWindow(),
                                         navigation: navigation,
-                                        factory: factory)
+                                        factory: factory,
+                                        storageService: storageService,
+                                        photoLibraryService: photoLibraryService)
         appCoordinator?.start()
         navigation.setNavigationBarHidden(true, animated: false)
         window?.rootViewController = navigation
