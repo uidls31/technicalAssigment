@@ -18,8 +18,8 @@ final class OnboardingCoordinator: AppCoordinatorProtocol {
     }
     
     func start() {
-        let vc = factory.createOnboardingViewController(output: self)
-        navigation.setViewControllers([vc], animated: true)
+        let viewControlerr = factory.createOnboardingViewController(output: self)
+        navigation.pushViewController(viewControlerr, animated: true)
     }
     
     
