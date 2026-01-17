@@ -11,7 +11,8 @@ protocol AppCoordinatorFactoryProtocol {
                                      goToMediaDelegate: (any MainScreenCoordinatorProtocol)?) -> AppCoordinatorProtocol
     func createMediaListCoordinator(window: UIWindow,
                                     navigation: UINavigationController,
-                                    mediaListService: any MediaListServiceProtocol) -> AppCoordinatorProtocol
+                                    mediaListService: any MediaListServiceProtocol,
+                                    photoService: PhotoLibraryServiceProtocol) -> AppCoordinatorProtocol
 }
 
 struct AppCoordinatorFactoryImp: AppCoordinatorFactoryProtocol {
@@ -43,12 +44,14 @@ struct AppCoordinatorFactoryImp: AppCoordinatorFactoryProtocol {
     
     func createMediaListCoordinator(window: UIWindow,
                                     navigation: UINavigationController,
-                                    mediaListService: any MediaListServiceProtocol) -> AppCoordinatorProtocol {
+                                    mediaListService: any MediaListServiceProtocol,
+                                    photoService: PhotoLibraryServiceProtocol) -> AppCoordinatorProtocol {
         let factory = MediaListFactoryImp()
         let coordinator = MediaListCoordinator(window: window,
                                                navigation: navigation,
                                                factory: factory,
-                                               mediaListService: mediaListService)
+                                               mediaListService: mediaListService,
+                                               photoService: photoService)
         return coordinator
     }
 }
