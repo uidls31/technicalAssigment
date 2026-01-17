@@ -24,7 +24,6 @@ class AppCoordinator: AppCoordinatorProtocol {
     var window: UIWindow
     var navigation: UINavigationController
     
-    // Держим сильные ссылки на активные координаторы
     private var onboardingCoordinator: AppCoordinatorProtocol?
     private var mainCoordinator: AppCoordinatorProtocol?
     private var mediaListCoordinator: AppCoordinatorProtocol?
@@ -65,11 +64,14 @@ class AppCoordinator: AppCoordinatorProtocol {
     func showMediaList() {
         let coordinator = factory.createMediaListCoordinator(window: window,
                                                              navigation: navigation,
-                                                             mediaListService: mediaListService)
+                                                             mediaListService: mediaListService,
+                                                             photoService: photoLibraryService)
         mediaListCoordinator = coordinator
         coordinator.start()
         
     }
+
+    
 }
 
 extension AppCoordinator: CoordinatorOutputProtocol {

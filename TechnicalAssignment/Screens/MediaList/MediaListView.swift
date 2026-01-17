@@ -27,17 +27,14 @@ class MediaListView: UIView, MediaListViewProtocol {
     var mediaCollectionView: UICollectionView = {
         let layout = UICollectionViewFlowLayout()
         layout.scrollDirection = .vertical
-        layout.minimumLineSpacing = 16      // Отступ между строками (вертикальный)
-        layout.minimumInteritemSpacing = 8 // Отступ между колонками (горизонтальный)
-        
-        let cv = UICollectionView(frame: .zero, collectionViewLayout: layout)
-        cv.backgroundColor = .clear // Прозрачный, чтобы видеть фон контроллера
-        cv.showsVerticalScrollIndicator = false
-        
-        // Регистрируем ячейку
-        cv.register(MediaListCollectionCell.self, forCellWithReuseIdentifier: MediaListCollectionCell.identifier)
-        cv.translatesAutoresizingMaskIntoConstraints = false
-        return cv
+        layout.minimumLineSpacing = 16
+        layout.minimumInteritemSpacing = 8
+        let collectionView = UICollectionView(frame: .zero, collectionViewLayout: layout)
+        collectionView.backgroundColor = .clear
+        collectionView.showsVerticalScrollIndicator = false
+        collectionView.register(MediaListCollectionCell.self, forCellWithReuseIdentifier: MediaListCollectionCell.identifier)
+        collectionView.translatesAutoresizingMaskIntoConstraints = false
+        return collectionView
     }()
     
     

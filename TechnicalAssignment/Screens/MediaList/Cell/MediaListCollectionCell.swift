@@ -10,9 +10,9 @@ class MediaListCollectionCell: UICollectionViewCell {
         view.layer.cornerRadius = 10
         view.translatesAutoresizingMaskIntoConstraints = false
         view.layer.shadowColor = UIColor.black.cgColor
-        view.layer.shadowOpacity = 0.15
-        view.layer.shadowOffset = CGSize(width: 0, height: 4)
-        view.layer.shadowRadius = 4
+        view.layer.shadowOpacity = 0.1
+        view.layer.shadowOffset = CGSize(width: 0, height: 2)
+        view.layer.shadowRadius = 6
         view.layer.masksToBounds = false
         
         return view
@@ -73,8 +73,8 @@ class MediaListCollectionCell: UICollectionViewCell {
     private func setupConstraints() {
         NSLayoutConstraint.activate([
             containerView.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 4),
-            containerView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 4),
-            containerView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -4),
+            containerView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, /*constant: 4*/),
+            containerView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, /*constant: -4*/),
             containerView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
             
             iconImageView.topAnchor.constraint(equalTo: containerView.topAnchor, constant: 13),

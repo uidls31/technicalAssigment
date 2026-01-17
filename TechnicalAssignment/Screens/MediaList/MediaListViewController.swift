@@ -4,18 +4,25 @@ protocol MediaListViewControllerOutputBack: AnyObject {
     func back()
 }
 
+protocol MediaListViewControllerOutput: AnyObject {
+    func goToSmartAlbum(_ type: SmartAlbumType)
+}
+
 class MediaListViewController: UIViewController {
     
     let customViewMediaList: MediaListViewProtocol
     let viewModelMediaList: MediaListViewModelProtocol
     weak var outputBack: MediaListViewControllerOutputBack?
+    weak var output: MediaListViewControllerOutput?
     
     init(customViewMediaList: MediaListViewProtocol,
          outputBack: MediaListViewControllerOutputBack?,
-         viewModelMediaList: MediaListViewModelProtocol) {
+         viewModelMediaList: MediaListViewModelProtocol,
+         output: MediaListViewControllerOutput?) {
         self.customViewMediaList = customViewMediaList
         self.outputBack = outputBack
         self.viewModelMediaList = viewModelMediaList
+        self.output = output
         super.init(nibName: nil, bundle: nil)
     }
     
@@ -89,11 +96,11 @@ extension MediaListViewController: UICollectionViewDataSource, UICollectionViewD
         case .similarPhotos:
             print("similarPhotos")
         case .screenshots:
-            print("screenshots")
+            output?.goToSmartAlbum(.screenshots)
         case .livePhotos:
-            print("livePhotos")
+            output?.goToSmartAlbum(.livePhotos)
         case .screenRecording:
-            print("screenRecording")
+            output?.goToSmartAlbum(.screenRecordings)
         case .similarVideos:
             print("similarVideos")
         }

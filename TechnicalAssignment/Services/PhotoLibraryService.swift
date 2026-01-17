@@ -6,9 +6,12 @@ protocol PhotoLibraryServiceProtocol: AnyObject {
     func calculateBreakdown(completion: @escaping (PhotoLibraryService.LibraryBreakdown) -> Void)
     func getSmartAlbumCount(type: SmartAlbumType) -> Int
     func requestAccessWithSmartDelay(completion: @escaping (Bool) -> Void)
+    func fetchItems(for type: SmartAlbumType) -> [SmartAlbumModel]
+    func requestImage(by id: String, targetSize: CGSize, completion: @escaping (UIImage?) -> Void)
 }
 
 class PhotoLibraryService: PhotoLibraryServiceProtocol {
+    private var assetsCache: [String: PHAsset] = [:]
     
     struct CategoryStats {
         let count: Int
@@ -24,6 +27,55 @@ class PhotoLibraryService: PhotoLibraryServiceProtocol {
         let photoStats: CategoryStats
     }
     
+    func fetchItems(for type: SmartAlbumType) -> [SmartAlbumModel] {
+            let assetSubtype: PHAssetCollectionSubtype
+            
+            switch type {
+            case .screenshots:
+                assetSubtype = .smartAlbumScreenshots
+            case .livePhotos:
+                assetSubtype = .smartAlbumLivePhotos
+            case .screenRecordings:
+                assetSubtype = .smartAlbumScreenRecordings
+            }
+            
+            let collection = PHAssetCollection.fetchAssetCollections(with: .smartAlbum, subtype: assetSubtype, options: nil)
+            var items: [SmartAlbumModel] = []
+            assetsCache.removeAll()
+            
+            if let firstObject = collection.firstObject {
+                let options = PHFetchOptions()
+                options.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
+                let result = PHAsset.fetchAssets(in: firstObject, options: options)
+                
+                result.enumerateObjects { [weak self] asset, _, _ in
+                    let id = asset.localIdentifier
+                    self?.assetsCache[id] = asset
+                    
+                    items.append(SmartAlbumModel(id: id, isSelected: false))
+                }
+            }
+            return items
+        }
+    
+    func requestImage(by id: String, targetSize: CGSize, completion: @escaping (UIImage?) -> Void) {
+            guard let asset = assetsCache[id] else {
+                completion(nil)
+                return
+            }
+            
+            let manager = PHImageManager.default()
+            let options = PHImageRequestOptions()
+            options.deliveryMode = .opportunistic
+            options.isNetworkAccessAllowed = true
+            
+            manager.requestImage(for: asset,
+                                 targetSize: targetSize,
+                                 contentMode: .aspectFill,
+                                 options: options) { image, _ in
+                completion(image)
+            }
+        }
     
     func requestAccessWithSmartDelay(completion: @escaping (Bool) -> Void) {
             let status = PHPhotoLibrary.authorizationStatus(for: .readWrite)
