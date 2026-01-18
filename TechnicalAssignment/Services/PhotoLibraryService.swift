@@ -8,10 +8,14 @@ protocol PhotoLibraryServiceProtocol: AnyObject {
     func requestAccessWithSmartDelay(completion: @escaping (Bool) -> Void)
     func fetchItems(for type: SmartAlbumType) -> [SmartAlbumModel]
     func requestImage(by id: String, targetSize: CGSize, completion: @escaping (UIImage?) -> Void)
+    func deleteAssets(with ids: [String], completion: @escaping (Bool) -> Void)
+    func calculateTotalSize(for type: SmartAlbumType, completion: @escaping (Int64) -> Void)
+    func getFileSize(for id: String) -> Int64
 }
 
 class PhotoLibraryService: PhotoLibraryServiceProtocol {
     private var assetsCache: [String: PHAsset] = [:]
+    private var sizesCache: [String: Int64] = [:]
     
     struct CategoryStats {
         let count: Int
@@ -28,74 +32,136 @@ class PhotoLibraryService: PhotoLibraryServiceProtocol {
     }
     
     func fetchItems(for type: SmartAlbumType) -> [SmartAlbumModel] {
-            let assetSubtype: PHAssetCollectionSubtype
+        let assetSubtype: PHAssetCollectionSubtype
+        
+        switch type {
+        case .screenshots: assetSubtype = .smartAlbumScreenshots
+        case .livePhotos: assetSubtype = .smartAlbumLivePhotos
+        case .screenRecordings: assetSubtype = .smartAlbumScreenRecordings
+        }
+        
+        let collection = PHAssetCollection.fetchAssetCollections(with: .smartAlbum, subtype: assetSubtype, options: nil)
+        var items: [SmartAlbumModel] = []
+        
+        assetsCache.removeAll()
+        
+        if let firstObject = collection.firstObject {
+            let options = PHFetchOptions()
+            options.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
+            let result = PHAsset.fetchAssets(in: firstObject, options: options)
             
+            result.enumerateObjects { [weak self] asset, _, _ in
+                let id = asset.localIdentifier
+                self?.assetsCache[id] = asset
+                
+                items.append(SmartAlbumModel(id: id, size: 0, isSelected: false))
+            }
+        }
+        return items
+    }
+    
+    func calculateTotalSize(for type: SmartAlbumType, completion: @escaping (Int64) -> Void) {
+        DispatchQueue.global(qos: .utility).async { [weak self] in
+            guard let self = self else { return }
+            
+            let assetSubtype: PHAssetCollectionSubtype
             switch type {
-            case .screenshots:
-                assetSubtype = .smartAlbumScreenshots
-            case .livePhotos:
-                assetSubtype = .smartAlbumLivePhotos
-            case .screenRecordings:
-                assetSubtype = .smartAlbumScreenRecordings
+            case .screenshots: assetSubtype = .smartAlbumScreenshots
+            case .livePhotos: assetSubtype = .smartAlbumLivePhotos
+            case .screenRecordings: assetSubtype = .smartAlbumScreenRecordings
             }
             
             let collection = PHAssetCollection.fetchAssetCollections(with: .smartAlbum, subtype: assetSubtype, options: nil)
-            var items: [SmartAlbumModel] = []
-            assetsCache.removeAll()
+            var totalBytes: Int64 = 0
             
             if let firstObject = collection.firstObject {
-                let options = PHFetchOptions()
-                options.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
-                let result = PHAsset.fetchAssets(in: firstObject, options: options)
+                let result = PHAsset.fetchAssets(in: firstObject, options: nil)
                 
-                result.enumerateObjects { [weak self] asset, _, _ in
-                    let id = asset.localIdentifier
-                    self?.assetsCache[id] = asset
+                result.enumerateObjects { asset, _, _ in
+                    var currentAssetSize: Int64 = 0
                     
-                    items.append(SmartAlbumModel(id: id, isSelected: false))
+                    let resources = PHAssetResource.assetResources(for: asset)
+                    if let resource = resources.first,
+                       let unsignedSize = resource.value(forKey: "fileSize") as? CLong {
+                        currentAssetSize = Int64(unsignedSize)
+                    }
+                    DispatchQueue.main.async {
+                        self.sizesCache[asset.localIdentifier] = currentAssetSize
+                    }
+                    totalBytes += currentAssetSize
                 }
             }
-            return items
+            DispatchQueue.main.async {
+                completion(totalBytes)
+            }
         }
+    }
+    
+    func getFileSize(for id: String) -> Int64 {
+        return sizesCache[id] ?? 0
+    }
+    
+    
+    func deleteAssets(with ids: [String], completion: @escaping (Bool) -> Void) {
+        let assetsToDelete = PHAsset.fetchAssets(withLocalIdentifiers: ids, options: nil)
+        
+        guard assetsToDelete.count > 0 else {
+            completion(true)
+            return
+        }
+        
+        PHPhotoLibrary.shared().performChanges {
+            PHAssetChangeRequest.deleteAssets(assetsToDelete)
+        } completionHandler: { success, error in
+            DispatchQueue.main.async {
+                if success {
+                    ids.forEach { self.assetsCache.removeValue(forKey: $0) }
+                }
+                completion(success)
+            }
+        }
+    }
+    
+    
     
     func requestImage(by id: String, targetSize: CGSize, completion: @escaping (UIImage?) -> Void) {
-            guard let asset = assetsCache[id] else {
-                completion(nil)
-                return
-            }
-            
-            let manager = PHImageManager.default()
-            let options = PHImageRequestOptions()
-            options.deliveryMode = .opportunistic
-            options.isNetworkAccessAllowed = true
-            
-            manager.requestImage(for: asset,
-                                 targetSize: targetSize,
-                                 contentMode: .aspectFill,
-                                 options: options) { image, _ in
-                completion(image)
-            }
+        guard let asset = assetsCache[id] else {
+            completion(nil)
+            return
         }
+        
+        let manager = PHImageManager.default()
+        let options = PHImageRequestOptions()
+        options.deliveryMode = .opportunistic
+        options.isNetworkAccessAllowed = true
+        
+        manager.requestImage(for: asset,
+                             targetSize: targetSize,
+                             contentMode: .aspectFill,
+                             options: options) { image, _ in
+            completion(image)
+        }
+    }
     
     func requestAccessWithSmartDelay(completion: @escaping (Bool) -> Void) {
-            let status = PHPhotoLibrary.authorizationStatus(for: .readWrite)
-            
-            if status == .notDetermined {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
-                    self?.requestAccess(completion: completion)
-                }
-            } else {
-                requestAccess(completion: completion)
+        let status = PHPhotoLibrary.authorizationStatus(for: .readWrite)
+        
+        if status == .notDetermined {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
+                self?.requestAccess(completion: completion)
             }
+        } else {
+            requestAccess(completion: completion)
         }
+    }
     
     func requestAccess(completion: @escaping (Bool) -> Void) {
-            PHPhotoLibrary.requestAuthorization(for: .readWrite) { status in
-                DispatchQueue.main.async {
-                    completion(status == .authorized || status == .limited)
-                }
+        PHPhotoLibrary.requestAuthorization(for: .readWrite) { status in
+            DispatchQueue.main.async {
+                completion(status == .authorized || status == .limited)
             }
         }
+    }
     
     func calculateBreakdown(completion: @escaping (LibraryBreakdown) -> Void) {
         
@@ -145,23 +211,24 @@ class PhotoLibraryService: PhotoLibraryServiceProtocol {
     }
     
     func getSmartAlbumCount(type: SmartAlbumType) -> Int {
-            let assetSubtype: PHAssetCollectionSubtype
-            
-            switch type {
-            case .screenshots:
-                assetSubtype = .smartAlbumScreenshots
-            case .livePhotos:
-                assetSubtype = .smartAlbumLivePhotos
-            case .screenRecordings:
-                assetSubtype = .smartAlbumScreenRecordings
-            }
-            
-            let collection = PHAssetCollection.fetchAssetCollections(with: .smartAlbum, subtype: assetSubtype, options: nil)
-            
-            if let first = collection.firstObject {
-                let count = PHAsset.fetchAssets(in: first, options: nil).count
-                return count
-            }
-            return 0
+        let assetSubtype: PHAssetCollectionSubtype
+        
+        switch type {
+        case .screenshots:
+            assetSubtype = .smartAlbumScreenshots
+        case .livePhotos:
+            assetSubtype = .smartAlbumLivePhotos
+        case .screenRecordings:
+            assetSubtype = .smartAlbumScreenRecordings
         }
+        
+        let collection = PHAssetCollection.fetchAssetCollections(with: .smartAlbum, subtype: assetSubtype, options: nil)
+        
+        if let first = collection.firstObject {
+            let count = PHAsset.fetchAssets(in: first, options: nil).count
+            return count
+        }
+        return 0
+    }
 }
+

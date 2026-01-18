@@ -24,14 +24,19 @@ class MediaListCoordinator: AppCoordinatorProtocol {
     func start() {
         let viewController = factory.createMediaListViewController(outputBack: self,
                                                                    mediaListService: mediaListService,
-                                                                   output: self)
+                                                                   output: self,
+                                                                   outputToGroupAlbum: self)
         navigation.pushViewController(viewController, animated: true)
+    }
+    
+    func goBackCoord() {
+        navigation.popViewController(animated: true)
     }
 }
 
 extension MediaListCoordinator: MediaListViewControllerOutputBack {
     func back() {
-        navigation.popViewController(animated: true)
+        goBackCoord()
     }
     
     
@@ -51,6 +56,23 @@ extension MediaListCoordinator: MediaListViewControllerOutput {
 
 extension MediaListCoordinator: SmarAlbumViewControllerProtocolOutputBack {
     func goBack() {
-        navigation.popViewController(animated: true)
+        goBackCoord()
     }
+}
+
+extension MediaListCoordinator: MediaListViewControllerOutputToGroupAlbum {
+    func goToGroupAlbum(_ type: GroupAlbum) {
+        let groupAlbumViewController = factory.createGroupAlbumViewController(outputBackGroup: self,
+                                                                              groupAlbumType: type)
+        navigation.pushViewController(groupAlbumViewController, animated: true)
+    }
+
+    
+}
+
+extension MediaListCoordinator: GroupAlbumViewControllerOutputBack {
+    func goGroupBack() {
+        goBackCoord()
+    }
+
 }

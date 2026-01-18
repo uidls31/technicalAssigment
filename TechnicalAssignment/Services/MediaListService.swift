@@ -30,3 +30,9 @@ enum SmartAlbumType {
     case livePhotos
     case screenRecordings
 }
+
+enum GroupAlbum {
+    case similarVideos
+    case duplicatePhotos
+    case similarPhotos
+}
