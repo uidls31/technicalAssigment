@@ -6,7 +6,6 @@ class CustomNavigationBar: UIView {
     
     let containerView: UIView = {
         let view = UIView()
-        view.backgroundColor = .white
         view.translatesAutoresizingMaskIntoConstraints = false
         return view
     }()
@@ -14,7 +13,7 @@ class CustomNavigationBar: UIView {
     lazy var backButton: UIButton = {
         let button = UIButton()
         button.setImage(.iconBack, for: .normal)
-        button.contentMode = .scaleAspectFill
+        button.contentMode = .scaleAspectFit
         button.applyPressAnimation()
         button.translatesAutoresizingMaskIntoConstraints = false
         button.addTarget(self, action: #selector(backButtonTapped), for: .touchUpInside)
@@ -45,8 +44,9 @@ class CustomNavigationBar: UIView {
             
             backButton.heightAnchor.constraint(equalTo: containerView.heightAnchor),
             backButton.centerYAnchor.constraint(equalTo: containerView.centerYAnchor),
-            backButton.widthAnchor.constraint(equalTo: containerView.heightAnchor, constant: 0.15),
-            backButton.leadingAnchor.constraint(equalTo: containerView.leadingAnchor)
+            backButton.widthAnchor.constraint(equalTo: containerView.heightAnchor, constant: 0.1),
+            backButton.leadingAnchor.constraint(equalTo: containerView.leadingAnchor),
+            
         ])
     }
     

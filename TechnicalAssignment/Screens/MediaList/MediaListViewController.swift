@@ -8,21 +8,28 @@ protocol MediaListViewControllerOutput: AnyObject {
     func goToSmartAlbum(_ type: SmartAlbumType)
 }
 
+protocol MediaListViewControllerOutputToGroupAlbum: AnyObject {
+    func goToGroupAlbum(_ type: GroupAlbum)
+}
+
 class MediaListViewController: UIViewController {
     
     let customViewMediaList: MediaListViewProtocol
     let viewModelMediaList: MediaListViewModelProtocol
     weak var outputBack: MediaListViewControllerOutputBack?
     weak var output: MediaListViewControllerOutput?
+    weak var outputToGroupAlbum: MediaListViewControllerOutputToGroupAlbum?
     
     init(customViewMediaList: MediaListViewProtocol,
          outputBack: MediaListViewControllerOutputBack?,
          viewModelMediaList: MediaListViewModelProtocol,
-         output: MediaListViewControllerOutput?) {
+         output: MediaListViewControllerOutput?,
+         outputToGroupAlbum: MediaListViewControllerOutputToGroupAlbum?) {
         self.customViewMediaList = customViewMediaList
         self.outputBack = outputBack
         self.viewModelMediaList = viewModelMediaList
         self.output = output
+        self.outputToGroupAlbum = outputToGroupAlbum
         super.init(nibName: nil, bundle: nil)
     }
     
@@ -92,9 +99,9 @@ extension MediaListViewController: UICollectionViewDataSource, UICollectionViewD
         
         switch items.action {
         case .duplicatePhoto:
-            print("duplicatePhoto")
+            outputToGroupAlbum?.goToGroupAlbum(.duplicatePhotos)
         case .similarPhotos:
-            print("similarPhotos")
+            outputToGroupAlbum?.goToGroupAlbum(.similarPhotos)
         case .screenshots:
             output?.goToSmartAlbum(.screenshots)
         case .livePhotos:
@@ -102,7 +109,7 @@ extension MediaListViewController: UICollectionViewDataSource, UICollectionViewD
         case .screenRecording:
             output?.goToSmartAlbum(.screenRecordings)
         case .similarVideos:
-            print("similarVideos")
+            outputToGroupAlbum?.goToGroupAlbum(.similarVideos)
         }
     }
 }

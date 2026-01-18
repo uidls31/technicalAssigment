@@ -58,4 +58,6 @@ class SmarAlbumCollectionViewCell: UICollectionViewCell {
     func setImage(_ image: UIImage?) {
         mainImage.image = image
     }
+    
+    
 }

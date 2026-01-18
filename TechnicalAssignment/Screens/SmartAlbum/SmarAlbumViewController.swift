@@ -41,14 +41,51 @@ class SmarAlbumViewController: UIViewController {
         customViewSmartAlbum.navigationBarSmartView.setBackButtonAction {
             self.outputBack?.goBack()
         }
+        
+        customViewSmartAlbum.onTapDeleteBUtton = { [weak self] in
+            guard let self else { return }
+            showDeleteAlert()
+        }
+        
+        customViewSmartAlbum.onTapDeselectAllButton = { [weak self] in
+            guard let self else { return }
+            viewModelSmartAlbum.deselectAll()
+        }
+        
+    }
+    
+    private func showDeleteAlert() {
+        
+        let count = viewModelSmartAlbum.itemsSmartAlubm.filter { $0.isSelected }.count
+        guard count > 0 else { return }
+        
+        let alert = UIAlertController(title: "Delete \(count) Photos?",
+                                      message: "This action cannot be undone.",
+                                      preferredStyle: .actionSheet)
+        
+        let deleteAction = UIAlertAction(title: "Delete", style: .destructive) { [weak self] _ in
+            self?.viewModelSmartAlbum.deleteSelectedItems()
+        }
+        
+        let cancelAction = UIAlertAction(title: "Cancel", style: .cancel)
+        
+        alert.addAction(deleteAction)
+        alert.addAction(cancelAction)
+        
+        present(alert, animated: true)
     }
     
     private func setupBindings() {
         customViewSmartAlbum.headerLabel.text = viewModelSmartAlbum.title
         viewModelSmartAlbum.onUpdateData = { [weak self] in
             guard let self else { return }
-            DispatchQueue.main.async {
+            DispatchQueue.main.async { [weak self] in
+                guard let self else { return }
+                customViewSmartAlbum.setupForCameraCountingLabel("\(viewModelSmartAlbum.itemsSmartAlubm.count)", type: viewModelSmartAlbum.albumType)
+                customViewSmartAlbum.setupForMaterialLabel(viewModelSmartAlbum.totalSizeString)
                 self.customViewSmartAlbum.smartAlbumCollectionView.reloadData()
+                customViewSmartAlbum.updateDeleteTitle(viewModelSmartAlbum.deleteButtonTitle, isEnabled: viewModelSmartAlbum.isDeleteButtonEnabled)
+                self.customViewSmartAlbum.updateSelectedTitle(isSelected: self.viewModelSmartAlbum.isAllSelected)
             }
         }
         
@@ -58,8 +95,25 @@ class SmarAlbumViewController: UIViewController {
             if let cell = self.customViewSmartAlbum.smartAlbumCollectionView.cellForItem(at: indexPath) as? SmarAlbumCollectionViewCell {
                 
                 let isSelected = self.viewModelSmartAlbum.itemsSmartAlubm[index].isSelected
-                
                 cell.configure(isSelected: isSelected)
+            }
+        }
+        
+        viewModelSmartAlbum.onDeleteButtonUpdate = { [weak self] in
+            guard let self else { return }
+            customViewSmartAlbum.updateDeleteTitle(viewModelSmartAlbum.deleteButtonTitle, isEnabled: viewModelSmartAlbum.isDeleteButtonEnabled)
+            self.customViewSmartAlbum.updateSelectedTitle(isSelected: self.viewModelSmartAlbum.isAllSelected)
+        }
+        
+        viewModelSmartAlbum.onSelectButtonUpdate = { [weak self] isAllSelected in
+            guard let self else { return }
+            DispatchQueue.main.async {
+                self.customViewSmartAlbum.updateSelectedTitle(isSelected: isAllSelected)
+                for cell in self.customViewSmartAlbum.smartAlbumCollectionView.visibleCells {
+                    if let smartCell = cell as? SmarAlbumCollectionViewCell {
+                        smartCell.configure(isSelected: isAllSelected)
+                    }
+                }
             }
         }
     }
@@ -68,6 +122,8 @@ class SmarAlbumViewController: UIViewController {
         customViewSmartAlbum.smartAlbumCollectionView.dataSource = self
         customViewSmartAlbum.smartAlbumCollectionView.delegate = self
     }
+    
+    
 }
 
 extension SmarAlbumViewController: UICollectionViewDataSource, UICollectionViewDelegateFlowLayout {

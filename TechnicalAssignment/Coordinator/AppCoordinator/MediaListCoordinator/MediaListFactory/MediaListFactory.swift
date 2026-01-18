@@ -3,23 +3,28 @@ import UIKit
 protocol MediaListFactoryProtocol {
     func createMediaListViewController(outputBack: (any MediaListViewControllerOutputBack)?,
                                        mediaListService: MediaListServiceProtocol,
-                                       output: (any MediaListViewControllerOutput)?) -> UIViewController
+                                       output: (any MediaListViewControllerOutput)?,
+                                       outputToGroupAlbum: (any MediaListViewControllerOutputToGroupAlbum)?) -> UIViewController
     func createSmartAlbumViewController(outputBack: (any SmarAlbumViewControllerProtocolOutputBack)?,
                                         albumType: SmartAlbumType,
                                         photoService: any PhotoLibraryServiceProtocol) -> UIViewController
+    func createGroupAlbumViewController(outputBackGroup: (any GroupAlbumViewControllerOutputBack)?,
+                                        groupAlbumType: GroupAlbum) -> UIViewController
 }
 
 struct MediaListFactoryImp: MediaListFactoryProtocol{
     
     func createMediaListViewController(outputBack: (any MediaListViewControllerOutputBack)?,
                                        mediaListService: MediaListServiceProtocol,
-                                       output: (any MediaListViewControllerOutput)?) -> UIViewController {
+                                       output: (any MediaListViewControllerOutput)?,
+                                       outputToGroupAlbum: (any MediaListViewControllerOutputToGroupAlbum)?) -> UIViewController {
         let viewModelMediaList: MediaListViewModelProtocol = MediaListViewModel(mediaListService: mediaListService)
         let customView: MediaListViewProtocol = MediaListView()
         let viewController = MediaListViewController(customViewMediaList: customView,
                                                      outputBack: outputBack,
                                                      viewModelMediaList: viewModelMediaList,
-                                                     output: output)
+                                                     output: output,
+                                                     outputToGroupAlbum: outputToGroupAlbum)
         return viewController
     }
     
@@ -32,6 +37,17 @@ struct MediaListFactoryImp: MediaListFactoryProtocol{
         let viewController = SmarAlbumViewController(customViewSmartAlbum: customView,
                                                      outputBack: outputBack,
                                                      viewModelSmartAlbum: viewModelSmartAlbum)
+        return viewController
+    }
+    
+    func createGroupAlbumViewController(outputBackGroup: (any GroupAlbumViewControllerOutputBack)?,
+                                        groupAlbumType: GroupAlbum) -> UIViewController {
+        let customGroupAlbumView: GroupAlbumViewProtocol = GroupAlbumView()
+        let viewModelGroupAlbum: GroupAlbumViewModelProtocol = GroupAlbumViewModel(groupAlbumType: groupAlbumType)
+        let viewController = GroupAlbumViewController(customGroupAlbumView: customGroupAlbumView,
+                                                      outputBackGroup: outputBackGroup,
+                                                      viewModelGroupAlbum: viewModelGroupAlbum)
+        
         return viewController
     }
 }
