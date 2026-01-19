@@ -4,7 +4,10 @@ protocol GroupAlbumViewProtocol: AnyObject {
     var navigationBarGroupAlbum: CustomNavigationBar { get set }
     var onDidTapDeleteButton: (() -> Void)? { get set }
     var headerGroupLabel: UILabel { get set }
+    var deleteButton: UIButton { get set }
     var groupAlbumCollectionView: UICollectionView { get set }
+    var countingMaterialLabel: UILabel { get set }
+    var cameraCountingLabel: UILabel { get set }
 }
 
 class GroupAlbumView: UIView, GroupAlbumViewProtocol {
@@ -26,26 +29,6 @@ class GroupAlbumView: UIView, GroupAlbumViewProtocol {
         return label
     }()
     
-    let containerForButton: UIView = {
-        let view = UIView()
-        view.backgroundColor = .white
-        view.translatesAutoresizingMaskIntoConstraints = false
-        view.layer.cornerRadius = 5
-        view.layer.shadowColor = UIColor.black.cgColor
-        view.layer.shadowOpacity = 0.2
-        view.layer.shadowOffset = .zero
-        view.layer.shadowRadius = 4
-        view.clipsToBounds = false
-        return view
-    }()
-    
-    let completedImage: UIImageView = {
-        let image = UIImageView()
-        image.image = .completed
-        image.contentMode = .scaleAspectFit
-        image.translatesAutoresizingMaskIntoConstraints = false
-        return image
-    }()
     
     let firstContainer: UIView = {
         let view = UIView()
@@ -68,25 +51,15 @@ class GroupAlbumView: UIView, GroupAlbumViewProtocol {
         return image
     }()
     
-    let cameraCountingLabel: UILabel = {
+    var cameraCountingLabel: UILabel = {
         let label = UILabel()
         let size = CGFloat.dynamicFontSize(baseFontSize: 14)
         label.font = UIFont.systemFont(ofSize: size, weight: .regular)
         label.textColor = .graySmarAlbum
-        label.text = "dsadsadasdas"
         label.translatesAutoresizingMaskIntoConstraints = false
         return label
     }()
     
-    var selectedTitle: UILabel = {
-        let title = UILabel()
-        let size = CGFloat.dynamicFontSize(baseFontSize: 14)
-        title.font = UIFont.systemFont(ofSize: size, weight: .medium)
-        title.text = "Selected All"
-        title.translatesAutoresizingMaskIntoConstraints = false
-        title.textAlignment = .center
-        return title
-    }()
     
     let secondContainer: UIView = {
         let view = UIView()
@@ -109,12 +82,12 @@ class GroupAlbumView: UIView, GroupAlbumViewProtocol {
         return image
     }()
     
-    let countingMaterialLabel: UILabel = {
+    var countingMaterialLabel: UILabel = {
         let label = UILabel()
         let size = CGFloat.dynamicFontSize(baseFontSize: 14)
         label.font = UIFont.systemFont(ofSize: size, weight: .regular)
         label.textColor = .graySmarAlbum
-        label.text = "dasdasdasdasdsa"
+        label.text = "Calculating..."
         label.translatesAutoresizingMaskIntoConstraints = false
         return label
     }()
@@ -141,13 +114,11 @@ class GroupAlbumView: UIView, GroupAlbumViewProtocol {
     var groupAlbumCollectionView: UICollectionView = {
         let layout = UICollectionViewFlowLayout()
         layout.scrollDirection = .vertical
-//        layout.minimumInteritemSpacing = 10
         let collectionView = UICollectionView(frame: .zero, collectionViewLayout: layout)
         collectionView.register(GroupAlbumCollectionViewCell.self, forCellWithReuseIdentifier: GroupAlbumCollectionViewCell.identifier)
         collectionView.translatesAutoresizingMaskIntoConstraints = false
         collectionView.showsVerticalScrollIndicator = false
         collectionView.alwaysBounceVertical = true
-//        collectionView.backgroundColor = .red
         return collectionView
     }()
     
@@ -167,9 +138,6 @@ class GroupAlbumView: UIView, GroupAlbumViewProtocol {
         addSubview(groupAlbumCollectionView)
         addSubview(navigationBarGroupAlbum)
         addSubview(headerGroupLabel)
-        addSubview(containerForButton)
-        containerForButton.addSubview(completedImage)
-        containerForButton.addSubview(selectedTitle)
         addSubview(firstContainer)
         firstContainer.addSubview(cameraGroupAlbum)
         firstContainer.addSubview(cameraCountingLabel)
@@ -208,17 +176,6 @@ class GroupAlbumView: UIView, GroupAlbumViewProtocol {
             headerGroupLabel.topAnchor.constraint(equalTo: navigationBarGroupAlbum.bottomAnchor, constant: 16),
             headerGroupLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
             
-            containerForButton.centerYAnchor.constraint(equalTo: navigationBarGroupAlbum.centerYAnchor),
-            containerForButton.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
-            containerForButton.heightAnchor.constraint(equalTo: heightAnchor, multiplier: 0.03),
-            containerForButton.leadingAnchor.constraint(equalTo: selectedTitle.leadingAnchor, constant: -36),
-            
-            completedImage.centerYAnchor.constraint(equalTo: containerForButton.centerYAnchor),
-            completedImage.leadingAnchor.constraint(equalTo: containerForButton.leadingAnchor, constant: 8),
-            
-            selectedTitle.centerYAnchor.constraint(equalTo: containerForButton.centerYAnchor),
-            selectedTitle.trailingAnchor.constraint(equalTo: containerForButton.trailingAnchor, constant: -8),
-            
             firstContainer.topAnchor.constraint(equalTo: headerGroupLabel.bottomAnchor, constant: 8),
             firstContainer.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
             firstContainer.heightAnchor.constraint(equalTo: heightAnchor, multiplier: 0.04),
@@ -241,7 +198,7 @@ class GroupAlbumView: UIView, GroupAlbumViewProtocol {
             countingMaterialLabel.centerYAnchor.constraint(equalTo: secondContainer.centerYAnchor),
             countingMaterialLabel.leadingAnchor.constraint(equalTo: materialGroupAlbum.trailingAnchor, constant: 8),
             
-            groupAlbumCollectionView.topAnchor.constraint(equalTo: countingMaterialLabel.bottomAnchor, constant: 24),
+            groupAlbumCollectionView.topAnchor.constraint(equalTo: secondContainer.bottomAnchor, constant: 8),
             groupAlbumCollectionView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
             groupAlbumCollectionView.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
             groupAlbumCollectionView.bottomAnchor.constraint(equalTo: bottomAnchor),

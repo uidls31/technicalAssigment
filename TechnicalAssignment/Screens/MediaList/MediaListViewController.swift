@@ -47,7 +47,20 @@ class MediaListViewController: UIViewController {
         setupMediaCollectionView()
         setupActions()
         updateDataAndReload()
-        
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleCountsUpdate),
+            name: .photoLibraryCountsDidUpdate,
+            object: nil
+        )
+    }
+    
+    deinit {
+        NotificationCenter.default.removeObserver(self)
+    }
+    
+    @objc private func handleCountsUpdate() {
+        updateDataAndReload()
     }
     
     override func viewWillAppear(_ animated: Bool) {
@@ -73,6 +86,8 @@ class MediaListViewController: UIViewController {
             self.customViewMediaList.mediaCollectionView.reloadData()
         }
     }
+    
+    
 }
 
 extension MediaListViewController: UICollectionViewDataSource, UICollectionViewDelegateFlowLayout {

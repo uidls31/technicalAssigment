@@ -43,6 +43,14 @@ class AppCoordinator: AppCoordinatorProtocol {
     }
     
     func start() {
+        if UserDefaults.standard.bool(forKey: "completeFirstLaunch") {
+            showMainScreen()
+        } else {
+            showOnboarding()
+        }
+    }
+    
+    func showOnboarding() {
         let coordinator = factory.createOnboardingCoordinator(window: window,
                                                               navigation: navigation,
                                                               outputApp: self)

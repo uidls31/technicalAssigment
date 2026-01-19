@@ -45,7 +45,7 @@ class CustomNavigationBar: UIView {
             backButton.heightAnchor.constraint(equalTo: containerView.heightAnchor),
             backButton.centerYAnchor.constraint(equalTo: containerView.centerYAnchor),
             backButton.widthAnchor.constraint(equalTo: containerView.heightAnchor, constant: 0.1),
-            backButton.leadingAnchor.constraint(equalTo: containerView.leadingAnchor),
+            backButton.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: -10),
             
         ])
     }

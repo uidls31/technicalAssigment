@@ -11,24 +11,141 @@ protocol PhotoLibraryServiceProtocol: AnyObject {
     func deleteAssets(with ids: [String], completion: @escaping (Bool) -> Void)
     func calculateTotalSize(for type: SmartAlbumType, completion: @escaping (Int64) -> Void)
     func getFileSize(for id: String) -> Int64
+    func fetchGroupedItems(for type: GroupAlbum, completion: @escaping ([[GroupAlbumModel]]) -> Void)
+    func getGroupAlbumCount(type: GroupAlbum) -> Int
+    func calculateGroupTotalSize(for type: GroupAlbum, completion: @escaping (Int64) -> Void)
 }
 
 class PhotoLibraryService: PhotoLibraryServiceProtocol {
     private var assetsCache: [String: PHAsset] = [:]
     private var sizesCache: [String: Int64] = [:]
+    private var cachedGroupCounts: [GroupAlbum: Int] = [:]
+    private var isCalculating: [GroupAlbum: Bool] = [:]
+    private let cacheLock = NSLock()
     
-    struct CategoryStats {
-        let count: Int
-        let sizeBytes: Int64
+    
+    func fetchGroupedItems(for type: GroupAlbum, completion: @escaping ([[GroupAlbumModel]]) -> Void) {
         
-        var formattedSize: String {
-            return ByteCountFormatter.string(fromByteCount: sizeBytes, countStyle: .file)
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            guard let self = self else { return }
+            
+            let fetchOptions = PHFetchOptions()
+            fetchOptions.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
+            let mediaType: PHAssetMediaType = (type == .similarVideos) ? .video : .image
+            let allAssets = PHAsset.fetchAssets(with: mediaType, options: fetchOptions)
+            
+            var resultPairs: [[GroupAlbumModel]] = []
+            if type == .duplicatePhotos {
+                
+                var groupedAssets = [String: [PHAsset]]()
+                
+                allAssets.enumerateObjects { asset, _, _ in
+                    if let date = asset.creationDate {
+                        let key = "\(Int(date.timeIntervalSince1970))_\(asset.pixelWidth)_\(asset.pixelHeight)"
+                        groupedAssets[key, default: []].append(asset)
+                    }
+                }
+                let duplicates = groupedAssets.values.filter { $0.count > 1 }
+                
+                for group in duplicates {
+                    let pairs = self.chunkIntoPairs(assets: group)
+                    resultPairs.append(contentsOf: pairs)
+                }
+            }
+            else {
+                let timeThreshold: TimeInterval = 1.5
+                
+                var currentSeries: [PHAsset] = []
+                var lastAssetDate: Date?
+                
+                allAssets.enumerateObjects { asset, _, _ in
+                    guard let currentDate = asset.creationDate else { return }
+                    
+                    if let lastDate = lastAssetDate, abs(currentDate.timeIntervalSince(lastDate)) < timeThreshold {
+                        currentSeries.append(asset)
+                    } else {
+                        if currentSeries.count >= 2 {
+                            let pairs = self.chunkIntoPairs(assets: currentSeries)
+                            resultPairs.append(contentsOf: pairs)
+                        }
+                        currentSeries = [asset]
+                    }
+                    lastAssetDate = currentDate
+                }
+                
+                if currentSeries.count >= 2 {
+                    let pairs = self.chunkIntoPairs(assets: currentSeries)
+                    resultPairs.append(contentsOf: pairs)
+                }
+            }
+            
+            DispatchQueue.main.async {
+                completion(resultPairs)
+            }
         }
     }
     
-    struct LibraryBreakdown {
-        let videoStats: CategoryStats
-        let photoStats: CategoryStats
+    private func chunkIntoPairs(assets: [PHAsset]) -> [[GroupAlbumModel]] {
+        var pairs: [[GroupAlbumModel]] = []
+        
+        for i in stride(from: 0, to: assets.count - 1, by: 2) {
+            let asset1 = assets[i]
+            let asset2 = assets[i+1]
+            cacheLock.lock()
+            self.assetsCache[asset1.localIdentifier] = asset1
+            self.assetsCache[asset2.localIdentifier] = asset2
+            cacheLock.unlock()
+            
+            let model1 = GroupAlbumModel(id: asset1.localIdentifier, size: 0, isSelected: false)
+            let model2 = GroupAlbumModel(id: asset2.localIdentifier, size: 0, isSelected: true)
+            
+            pairs.append([model1, model2])
+        }
+        return pairs
+    }
+    
+    func calculateGroupTotalSize(for type: GroupAlbum, completion: @escaping (Int64) -> Void) {
+        fetchGroupedItems(for: type) { [weak self] groups in
+            guard let self = self else { return }
+            
+            DispatchQueue.global(qos: .utility).async {
+                var totalBytes: Int64 = 0
+                let allModels = groups.flatMap { $0 }
+                
+                for model in allModels {
+                    self.cacheLock.lock()
+                    let asset = self.assetsCache[model.id]
+                    self.cacheLock.unlock()
+                    
+                    if let asset = asset {
+                        let resources = PHAssetResource.assetResources(for: asset)
+                        if let resource = resources.first,
+                           let unsignedSize = resource.value(forKey: "fileSize") as? CLong {
+                            totalBytes += Int64(unsignedSize)
+                        }
+                    }
+                }
+                
+                DispatchQueue.main.async {
+                    completion(totalBytes)
+                }
+            }
+        }
+    }
+    
+    func getGroupAlbumCount(type: GroupAlbum) -> Int {
+        if let cached = cachedGroupCounts[type] {
+            return cached
+        }
+        if isCalculating[type] != true {
+            isCalculating[type] = true
+            fetchGroupedItems(for: type) { [weak self] groups in
+                self?.cachedGroupCounts[type] = groups.count
+                self?.isCalculating[type] = false
+                NotificationCenter.default.post(name: .photoLibraryCountsDidUpdate, object: nil)
+            }
+        }
+        return 0
     }
     
     func fetchItems(for type: SmartAlbumType) -> [SmartAlbumModel] {
@@ -115,7 +232,9 @@ class PhotoLibraryService: PhotoLibraryServiceProtocol {
         } completionHandler: { success, error in
             DispatchQueue.main.async {
                 if success {
+                    self.cacheLock.lock()
                     ids.forEach { self.assetsCache.removeValue(forKey: $0) }
+                    self.cacheLock.unlock()
                 }
                 completion(success)
             }
@@ -230,5 +349,28 @@ class PhotoLibraryService: PhotoLibraryServiceProtocol {
         }
         return 0
     }
+    
+    func calculateGroupCount(type: GroupAlbum, completion: @escaping (Int) -> Void) {
+        fetchGroupedItems(for: type) { groups in
+            completion(groups.count)
+        }
+    }
+    
+    struct CategoryStats {
+        let count: Int
+        let sizeBytes: Int64
+        
+        var formattedSize: String {
+            return ByteCountFormatter.string(fromByteCount: sizeBytes, countStyle: .file)
+        }
+    }
+    
+    struct LibraryBreakdown {
+        let videoStats: CategoryStats
+        let photoStats: CategoryStats
+    }
 }
 
+extension Notification.Name {
+    static let photoLibraryCountsDidUpdate = Notification.Name("photoLibraryCountsDidUpdate")
+}

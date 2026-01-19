@@ -8,7 +8,6 @@ class GroupAlbumCollectionViewCell: UICollectionViewCell {
     let leftView: CustomGroupSelectablePhotoView = {
         let view = CustomGroupSelectablePhotoView()
         view.translatesAutoresizingMaskIntoConstraints = false
-        view.backgroundColor = .green
         view.layer.cornerRadius = 10
         return view
     }()
@@ -43,6 +42,7 @@ class GroupAlbumCollectionViewCell: UICollectionViewCell {
         let button = UIButton()
         let size = CGFloat.dynamicFontSize(baseFontSize: 16)
         button.setTitle("Selected All", for: .normal)
+        button.setContentCompressionResistancePriority(.required, for: .vertical)
         button.titleLabel?.font = UIFont.systemFont(ofSize: size, weight: .medium)
         button.setTitleColor(.newGrayMainScreen, for: .normal)
         button.addTarget(self, action: #selector(didTapSelectedAllButton), for: .touchUpInside)
@@ -76,10 +76,10 @@ class GroupAlbumCollectionViewCell: UICollectionViewCell {
             countingDuplicateLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
             
             
-            selectedAllButton.topAnchor.constraint(equalTo: contentView.topAnchor),
+            selectedAllButton.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 12),
             selectedAllButton.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
             
-            stackViewForViews.topAnchor.constraint(equalTo: selectedAllButton.bottomAnchor, constant: 12),
+            stackViewForViews.topAnchor.constraint(equalTo: selectedAllButton.bottomAnchor, constant: 4),
             stackViewForViews.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
             stackViewForViews.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
             stackViewForViews.bottomAnchor.constraint(equalTo: contentView.bottomAnchor)
