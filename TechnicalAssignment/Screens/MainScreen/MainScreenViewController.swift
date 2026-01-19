@@ -35,6 +35,7 @@ class MainScreenViewController: UIViewController {
         setupBindings()
         viewModelMainScreen.getStorageInfo()
         requestAndLoadMedia()
+        UserDefaults.standard.set(true, forKey: "completeFirstLaunch")
     }
     
     private func requestAndLoadMedia() {

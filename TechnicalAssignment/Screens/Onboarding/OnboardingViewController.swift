@@ -47,7 +47,6 @@ class OnboardingViewController: UIViewController {
         
         viewModelOnboarding.onFinishOnboarding = { [weak self] in
             guard let self else { return }
-//            self?.navigationController?.pushViewController(MainScreenViewController(), animated: true)
             output?.goToMainScreen()
         }
     }

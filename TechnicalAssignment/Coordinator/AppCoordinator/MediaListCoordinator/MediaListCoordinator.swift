@@ -63,7 +63,8 @@ extension MediaListCoordinator: SmarAlbumViewControllerProtocolOutputBack {
 extension MediaListCoordinator: MediaListViewControllerOutputToGroupAlbum {
     func goToGroupAlbum(_ type: GroupAlbum) {
         let groupAlbumViewController = factory.createGroupAlbumViewController(outputBackGroup: self,
-                                                                              groupAlbumType: type)
+                                                                              groupAlbumType: type,
+                                                                              photoService: photoService)
         navigation.pushViewController(groupAlbumViewController, animated: true)
     }
 

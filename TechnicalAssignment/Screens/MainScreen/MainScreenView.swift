@@ -120,7 +120,7 @@ class MainScreenView: UIView, MainScreenViewProtocol {
         let size = CGFloat.dynamicFontSize(baseFontSize: 16)
         label.font = UIFont.systemFont(ofSize: size, weight: .regular)
         label.textColor = .newGrayMainScreen
-        label.text = "0 Videos • Zero KB"
+        label.text = "Calculating"
         label.translatesAutoresizingMaskIntoConstraints = false
         return label
     }()
@@ -130,7 +130,7 @@ class MainScreenView: UIView, MainScreenViewProtocol {
         let size = CGFloat.dynamicFontSize(baseFontSize: 16)
         label.font = UIFont.systemFont(ofSize: size, weight: .regular)
         label.textColor = .newGrayMainScreen
-        label.text = "0 Media • Zero KB"
+        label.text = "Calculating"
         label.translatesAutoresizingMaskIntoConstraints = false
         return label
     }()
@@ -203,9 +203,8 @@ class MainScreenView: UIView, MainScreenViewProtocol {
     let stackViewForCatAndGiraffe: UIStackView = {
         let stackView = UIStackView()
         stackView.axis = .horizontal
-        stackView.spacing = UIScreen.main.isProMax ? 24 : 8
-        stackView.alignment = .center
-        stackView.distribution = .fill
+        stackView.spacing = 8
+        stackView.distribution = .fillEqually
         stackView.translatesAutoresizingMaskIntoConstraints = false
         return stackView
     }()
@@ -327,8 +326,9 @@ class MainScreenView: UIView, MainScreenViewProtocol {
             
             
             stackViewForCatAndGiraffe.centerXAnchor.constraint(equalTo: whiteContainerView.centerXAnchor),
-            stackViewForCatAndGiraffe.topAnchor.constraint(equalTo: stackViewForAllAndVector.bottomAnchor, constant: UIScreen.main.isSmallScreen ? 11 : 21),
-            stackViewForCatAndGiraffe.heightAnchor.constraint(equalTo: whiteContainerView.heightAnchor, multiplier: 0.3),
+            stackViewForCatAndGiraffe.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 12),
+            stackViewForCatAndGiraffe.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
+            stackViewForCatAndGiraffe.topAnchor.constraint(equalTo: stackViewForAllAndVector.bottomAnchor, constant: UIScreen.main.isSmallScreen ? 11 : UIScreen.main.isProMax ? 40 : 21),
             
             containerTargetToMediaList.topAnchor.constraint(equalTo: stackViewForVideoAndMediaImage.topAnchor),
             containerTargetToMediaList.leadingAnchor.constraint(equalTo: whiteContainerView.leadingAnchor),

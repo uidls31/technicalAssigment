@@ -9,7 +9,8 @@ protocol MediaListFactoryProtocol {
                                         albumType: SmartAlbumType,
                                         photoService: any PhotoLibraryServiceProtocol) -> UIViewController
     func createGroupAlbumViewController(outputBackGroup: (any GroupAlbumViewControllerOutputBack)?,
-                                        groupAlbumType: GroupAlbum) -> UIViewController
+                                        groupAlbumType: GroupAlbum,
+                                        photoService: any PhotoLibraryServiceProtocol) -> UIViewController
 }
 
 struct MediaListFactoryImp: MediaListFactoryProtocol{
@@ -41,9 +42,11 @@ struct MediaListFactoryImp: MediaListFactoryProtocol{
     }
     
     func createGroupAlbumViewController(outputBackGroup: (any GroupAlbumViewControllerOutputBack)?,
-                                        groupAlbumType: GroupAlbum) -> UIViewController {
+                                        groupAlbumType: GroupAlbum,
+                                        photoService: any PhotoLibraryServiceProtocol) -> UIViewController {
         let customGroupAlbumView: GroupAlbumViewProtocol = GroupAlbumView()
-        let viewModelGroupAlbum: GroupAlbumViewModelProtocol = GroupAlbumViewModel(groupAlbumType: groupAlbumType)
+        let viewModelGroupAlbum: GroupAlbumViewModelProtocol = GroupAlbumViewModel(groupAlbumType: groupAlbumType,
+                                                                                   photoService: photoService)
         let viewController = GroupAlbumViewController(customGroupAlbumView: customGroupAlbumView,
                                                       outputBackGroup: outputBackGroup,
                                                       viewModelGroupAlbum: viewModelGroupAlbum)

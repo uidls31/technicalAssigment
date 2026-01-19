@@ -4,7 +4,6 @@ class CustomGroupSelectablePhotoView: UIView {
     
     let mainImageView: UIImageView = {
         let image = UIImageView()
-        image.image = .testCat
         image.contentMode = .scaleAspectFill
         image.clipsToBounds = true
         image.layer.cornerRadius = 10
