@@ -2,7 +2,6 @@ import UIKit
 
 enum CoordinatorType {
     case onboarding
-    // case main // пока не используется
 }
 
 protocol AppCoordinatorProtocol {
@@ -59,6 +58,7 @@ class AppCoordinator: AppCoordinatorProtocol {
     }
     
     func showMainScreen() {
+        onboardingCoordinator = nil
         let coordinator = factory.createMainScreenCoordinator(window: window,
                                                               navigation: navigation,
                                                               storageService: storageService,
@@ -66,7 +66,6 @@ class AppCoordinator: AppCoordinatorProtocol {
                                                               goToMediaDelegate: self)
         mainCoordinator = coordinator
         coordinator.start()
-        onboardingCoordinator = nil
     }
     
     func showMediaList() {

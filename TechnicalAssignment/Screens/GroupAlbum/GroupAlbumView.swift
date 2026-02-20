@@ -181,6 +181,7 @@ class GroupAlbumView: UIView, GroupAlbumViewProtocol {
             firstContainer.heightAnchor.constraint(equalTo: heightAnchor, multiplier: 0.04),
             firstContainer.trailingAnchor.constraint(equalTo: cameraCountingLabel.trailingAnchor, constant: 8),
             
+            
             cameraGroupAlbum.centerYAnchor.constraint(equalTo: firstContainer.centerYAnchor),
             cameraGroupAlbum.leadingAnchor.constraint(equalTo: firstContainer.leadingAnchor, constant: 8),
             
