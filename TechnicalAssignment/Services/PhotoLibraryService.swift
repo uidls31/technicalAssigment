@@ -1,6 +1,7 @@
 import Photos
 import UIKit
 
+
 protocol PhotoLibraryServiceProtocol: AnyObject {
     func requestAccess(completion: @escaping (Bool) -> Void)
     func calculateBreakdown(completion: @escaping (PhotoLibraryService.LibraryBreakdown) -> Void)
@@ -17,354 +18,254 @@ protocol PhotoLibraryServiceProtocol: AnyObject {
 }
 
 class PhotoLibraryService: PhotoLibraryServiceProtocol {
+    private let serviceQueue = DispatchQueue(label: "com.app.PhotoLibraryService", qos: .userInitiated)
     private var assetsCache: [String: PHAsset] = [:]
     private var sizesCache: [String: Int64] = [:]
     private var cachedGroupCounts: [GroupAlbum: Int] = [:]
     private var isCalculating: [GroupAlbum: Bool] = [:]
-    private let cacheLock = NSLock()
     
-    
-    func fetchGroupedItems(for type: GroupAlbum, completion: @escaping ([[GroupAlbumModel]]) -> Void) {
-        
-        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            guard let self = self else { return }
-            
-            let fetchOptions = PHFetchOptions()
-            fetchOptions.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
-            let mediaType: PHAssetMediaType = (type == .similarVideos) ? .video : .image
-            let allAssets = PHAsset.fetchAssets(with: mediaType, options: fetchOptions)
-            
-            var resultPairs: [[GroupAlbumModel]] = []
-            if type == .duplicatePhotos {
-                
-                var groupedAssets = [String: [PHAsset]]()
-                
-                allAssets.enumerateObjects { asset, _, _ in
-                    if let date = asset.creationDate {
-                        let key = "\(Int(date.timeIntervalSince1970))_\(asset.pixelWidth)_\(asset.pixelHeight)"
-                        groupedAssets[key, default: []].append(asset)
-                    }
-                }
-                let duplicates = groupedAssets.values.filter { $0.count > 1 }
-                
-                for group in duplicates {
-                    let pairs = self.chunkIntoPairs(assets: group)
-                    resultPairs.append(contentsOf: pairs)
-                }
-            }
-            else {
-                let timeThreshold: TimeInterval = 1.5
-                
-                var currentSeries: [PHAsset] = []
-                var lastAssetDate: Date?
-                
-                allAssets.enumerateObjects { asset, _, _ in
-                    guard let currentDate = asset.creationDate else { return }
-                    
-                    if let lastDate = lastAssetDate, abs(currentDate.timeIntervalSince(lastDate)) < timeThreshold {
-                        currentSeries.append(asset)
-                    } else {
-                        if currentSeries.count >= 2 {
-                            let pairs = self.chunkIntoPairs(assets: currentSeries)
-                            resultPairs.append(contentsOf: pairs)
-                        }
-                        currentSeries = [asset]
-                    }
-                    lastAssetDate = currentDate
-                }
-                
-                if currentSeries.count >= 2 {
-                    let pairs = self.chunkIntoPairs(assets: currentSeries)
-                    resultPairs.append(contentsOf: pairs)
-                }
-            }
-            
-            DispatchQueue.main.async {
-                completion(resultPairs)
-            }
+    private func fileSize(for asset: PHAsset) -> Int64 {
+            guard let resource = PHAssetResource.assetResources(for: asset).first,
+                  let size = resource.value(forKey: "fileSize") as? CLong else { return 0 }
+            return Int64(size)
         }
+    
+    private func cacheAsset(_ asset: PHAsset) {
+        assetsCache[asset.localIdentifier] = asset
     }
     
-    private func chunkIntoPairs(assets: [PHAsset]) -> [[GroupAlbumModel]] {
-        var pairs: [[GroupAlbumModel]] = []
-        
-        for i in stride(from: 0, to: assets.count - 1, by: 2) {
-            let asset1 = assets[i]
-            let asset2 = assets[i+1]
-            cacheLock.lock()
-            self.assetsCache[asset1.localIdentifier] = asset1
-            self.assetsCache[asset2.localIdentifier] = asset2
-            cacheLock.unlock()
-            
-            let model1 = GroupAlbumModel(id: asset1.localIdentifier, size: 0, isSelected: false)
-            let model2 = GroupAlbumModel(id: asset2.localIdentifier, size: 0, isSelected: true)
-            
-            pairs.append([model1, model2])
-        }
-        return pairs
-    }
-    
-    func calculateGroupTotalSize(for type: GroupAlbum, completion: @escaping (Int64) -> Void) {
-        fetchGroupedItems(for: type) { [weak self] groups in
-            guard let self = self else { return }
-            
-            DispatchQueue.global(qos: .utility).async {
-                var totalBytes: Int64 = 0
-                let allModels = groups.flatMap { $0 }
-                
-                for model in allModels {
-                    self.cacheLock.lock()
-                    let asset = self.assetsCache[model.id]
-                    self.cacheLock.unlock()
-                    
-                    if let asset = asset {
-                        let resources = PHAssetResource.assetResources(for: asset)
-                        if let resource = resources.first,
-                           let unsignedSize = resource.value(forKey: "fileSize") as? CLong {
-                            totalBytes += Int64(unsignedSize)
-                        }
-                    }
-                }
-                
+    func requestAccess(completion: @escaping (Bool) -> Void) {
+            PHPhotoLibrary.requestAuthorization(for: .readWrite) { status in
                 DispatchQueue.main.async {
-                    completion(totalBytes)
+                    completion(status == .authorized || status == .limited)
                 }
             }
         }
-    }
+    
+    func requestAccessWithSmartDelay(completion: @escaping (Bool) -> Void) {
+            let status = PHPhotoLibrary.authorizationStatus(for: .readWrite)
+            let delay: TimeInterval = status == .notDetermined ? 1.5 : 0
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+                self?.requestAccess(completion: completion)
+            }
+        }
+    
+    func getSmartAlbumCount(type: SmartAlbumType) -> Int {
+            guard let collection = type.fetchCollection() else { return 0 }
+            return PHAsset.fetchAssets(in: collection, options: nil).count
+        }
+
+        func fetchItems(for type: SmartAlbumType) -> [SmartAlbumModel] {
+            guard let collection = type.fetchCollection() else { return [] }
+
+            let options = PHFetchOptions()
+            options.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
+
+            var items: [SmartAlbumModel] = []
+            PHAsset.fetchAssets(in: collection, options: options)
+                .enumerateObjects { [weak self] asset, _, _ in
+                    self?.cacheAsset(asset)
+                    items.append(SmartAlbumModel(id: asset.localIdentifier, size: 0, isSelected: false))
+                }
+            return items
+        }
+    
+    func calculateTotalSize(for type: SmartAlbumType, completion: @escaping (Int64) -> Void) {
+            serviceQueue.async { [weak self] in
+                guard let self, let collection = type.fetchCollection() else {
+                    DispatchQueue.main.async { completion(0) }
+                    return
+                }
+
+                var total: Int64 = 0
+                PHAsset.fetchAssets(in: collection, options: nil)
+                    .enumerateObjects { asset, _, _ in
+                        let size = self.fileSize(for: asset)
+                        self.sizesCache[asset.localIdentifier] = size
+                        total += size
+                    }
+
+                DispatchQueue.main.async { completion(total) }
+            }
+        }
+
+        func getFileSize(for id: String) -> Int64 {
+            sizesCache[id] ?? 0
+        }
     
     func getGroupAlbumCount(type: GroupAlbum) -> Int {
-        if let cached = cachedGroupCounts[type] {
-            return cached
-        }
-        if isCalculating[type] != true {
+            if let cached = cachedGroupCounts[type] { return cached }
+            guard isCalculating[type] != true else { return 0 }
+
             isCalculating[type] = true
             fetchGroupedItems(for: type) { [weak self] groups in
                 self?.cachedGroupCounts[type] = groups.count
                 self?.isCalculating[type] = false
                 NotificationCenter.default.post(name: .photoLibraryCountsDidUpdate, object: nil)
             }
+            return 0
         }
-        return 0
-    }
     
-    func fetchItems(for type: SmartAlbumType) -> [SmartAlbumModel] {
-        let assetSubtype: PHAssetCollectionSubtype
-        
-        switch type {
-        case .screenshots: assetSubtype = .smartAlbumScreenshots
-        case .livePhotos: assetSubtype = .smartAlbumLivePhotos
-        case .screenRecordings: assetSubtype = .smartAlbumScreenRecordings
-        }
-        
-        let collection = PHAssetCollection.fetchAssetCollections(with: .smartAlbum, subtype: assetSubtype, options: nil)
-        var items: [SmartAlbumModel] = []
-        
-        assetsCache.removeAll()
-        
-        if let firstObject = collection.firstObject {
-            let options = PHFetchOptions()
-            options.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
-            let result = PHAsset.fetchAssets(in: firstObject, options: options)
-            
-            result.enumerateObjects { [weak self] asset, _, _ in
-                let id = asset.localIdentifier
-                self?.assetsCache[id] = asset
-                
-                items.append(SmartAlbumModel(id: id, size: 0, isSelected: false))
-            }
-        }
-        return items
-    }
-    
-    func calculateTotalSize(for type: SmartAlbumType, completion: @escaping (Int64) -> Void) {
-        DispatchQueue.global(qos: .utility).async { [weak self] in
-            guard let self = self else { return }
-            
-            let assetSubtype: PHAssetCollectionSubtype
-            switch type {
-            case .screenshots: assetSubtype = .smartAlbumScreenshots
-            case .livePhotos: assetSubtype = .smartAlbumLivePhotos
-            case .screenRecordings: assetSubtype = .smartAlbumScreenRecordings
-            }
-            
-            let collection = PHAssetCollection.fetchAssetCollections(with: .smartAlbum, subtype: assetSubtype, options: nil)
-            var totalBytes: Int64 = 0
-            
-            if let firstObject = collection.firstObject {
-                let result = PHAsset.fetchAssets(in: firstObject, options: nil)
-                
-                result.enumerateObjects { asset, _, _ in
-                    var currentAssetSize: Int64 = 0
-                    
-                    let resources = PHAssetResource.assetResources(for: asset)
-                    if let resource = resources.first,
-                       let unsignedSize = resource.value(forKey: "fileSize") as? CLong {
-                        currentAssetSize = Int64(unsignedSize)
-                    }
-                    DispatchQueue.main.async {
-                        self.sizesCache[asset.localIdentifier] = currentAssetSize
-                    }
-                    totalBytes += currentAssetSize
+    func fetchGroupedItems(for type: GroupAlbum, completion: @escaping ([[GroupAlbumModel]]) -> Void) {
+            serviceQueue.async { [weak self] in
+                guard let self else { return }
+
+                let options = PHFetchOptions()
+                options.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
+
+                let mediaType: PHAssetMediaType = (type == .similarVideos) ? .video : .image
+                let allAssets = PHAsset.fetchAssets(with: mediaType, options: options)
+
+                let groups: [[PHAsset]]
+                switch type {
+                case .duplicatePhotos:
+                    groups = self.findDuplicates(in: allAssets)
+                default:
+                    groups = self.findSimilar(in: allAssets, threshold: 1.5)
                 }
+
+                let result = groups.flatMap { self.chunkIntoPairs(assets: $0) }
+                DispatchQueue.main.async { completion(result) }
             }
-            DispatchQueue.main.async {
-                completion(totalBytes)
-            }
+        }
+    
+    func calculateGroupTotalSize(for type: GroupAlbum, completion: @escaping (Int64) -> Void) {
+        serviceQueue.async { [weak self] in
+            guard let self else { return }
+
+            let total = self.assetsCache.values.reduce(Int64(0)) { $0 + self.fileSize(for: $1) }
+            DispatchQueue.main.async { completion(total) }
         }
     }
     
-    func getFileSize(for id: String) -> Int64 {
-        return sizesCache[id] ?? 0
+    func requestImage(by id: String, targetSize: CGSize, completion: @escaping (UIImage?) -> Void) {
+        guard let asset = assetsCache[id] else { return completion(nil) }
+
+        let options = PHImageRequestOptions()
+        options.deliveryMode = .opportunistic
+        options.isNetworkAccessAllowed = true
+
+        PHImageManager.default().requestImage(
+            for: asset,
+            targetSize: targetSize,
+            contentMode: .aspectFill,
+            options: options
+        ) { image, _ in completion(image) }
     }
-    
     
     func deleteAssets(with ids: [String], completion: @escaping (Bool) -> Void) {
-        let assetsToDelete = PHAsset.fetchAssets(withLocalIdentifiers: ids, options: nil)
-        
-        guard assetsToDelete.count > 0 else {
-            completion(true)
-            return
-        }
-        
+        let assets = PHAsset.fetchAssets(withLocalIdentifiers: ids, options: nil)
+        guard assets.count > 0 else { return completion(true) }
+
         PHPhotoLibrary.shared().performChanges {
-            PHAssetChangeRequest.deleteAssets(assetsToDelete)
-        } completionHandler: { success, error in
+            PHAssetChangeRequest.deleteAssets(assets)
+        } completionHandler: { [weak self] success, _ in
             DispatchQueue.main.async {
-                if success {
-                    self.cacheLock.lock()
-                    ids.forEach { self.assetsCache.removeValue(forKey: $0) }
-                    self.cacheLock.unlock()
-                }
+                if success { ids.forEach { self?.assetsCache.removeValue(forKey: $0) } }
                 completion(success)
             }
         }
     }
     
-    
-    
-    func requestImage(by id: String, targetSize: CGSize, completion: @escaping (UIImage?) -> Void) {
-        guard let asset = assetsCache[id] else {
-            completion(nil)
-            return
-        }
-        
-        let manager = PHImageManager.default()
-        let options = PHImageRequestOptions()
-        options.deliveryMode = .opportunistic
-        options.isNetworkAccessAllowed = true
-        
-        manager.requestImage(for: asset,
-                             targetSize: targetSize,
-                             contentMode: .aspectFill,
-                             options: options) { image, _ in
-            completion(image)
-        }
-    }
-    
-    func requestAccessWithSmartDelay(completion: @escaping (Bool) -> Void) {
-        let status = PHPhotoLibrary.authorizationStatus(for: .readWrite)
-        
-        if status == .notDetermined {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
-                self?.requestAccess(completion: completion)
-            }
-        } else {
-            requestAccess(completion: completion)
-        }
-    }
-    
-    func requestAccess(completion: @escaping (Bool) -> Void) {
-        PHPhotoLibrary.requestAuthorization(for: .readWrite) { status in
-            DispatchQueue.main.async {
-                completion(status == .authorized || status == .limited)
-            }
-        }
-    }
-    
     func calculateBreakdown(completion: @escaping (LibraryBreakdown) -> Void) {
-        
         guard PHPhotoLibrary.authorizationStatus(for: .readWrite) == .authorized else {
-            let empty = CategoryStats(count: 0, sizeBytes: 0)
-            completion(LibraryBreakdown(videoStats: empty, photoStats: empty))
-            return
+            return completion(LibraryBreakdown(videoStats: .empty, photoStats: .empty))
         }
-        
-        DispatchQueue.global(qos: .userInitiated).async {
-            let fetchOptions = PHFetchOptions()
-            let allAssets = PHAsset.fetchAssets(with: fetchOptions)
-            
-            var videoCount = 0
-            var videoSize: Int64 = 0
-            
-            var photoCount = 0
-            var photoSize: Int64 = 0
-            
-            allAssets.enumerateObjects { asset, _, _ in
-                
-                var assetSize: Int64 = 0
-                let resources = PHAssetResource.assetResources(for: asset)
-                if let resource = resources.first,
-                   let unsignedSize = resource.value(forKey: "fileSize") as? CLong {
-                    assetSize = Int64(unsignedSize)
+
+        serviceQueue.async { [weak self] in
+            guard let self else { return }
+
+            var videoCount = 0, videoSize: Int64 = 0
+            var photoCount = 0, photoSize: Int64 = 0
+
+            PHAsset.fetchAssets(with: PHFetchOptions())
+                .enumerateObjects { asset, _, _ in
+                    let size = self.fileSize(for: asset)
+                    switch asset.mediaType {
+                    case .video: videoCount += 1; videoSize += size
+                    case .image: photoCount += 1; photoSize += size
+                    default: break
+                    }
                 }
-                
-                if asset.mediaType == .video {
-                    videoCount += 1
-                    videoSize += assetSize
-                } else if asset.mediaType == .image {
-                    photoCount += 1
-                    photoSize += assetSize
-                }
-            }
-            
+
             let result = LibraryBreakdown(
                 videoStats: CategoryStats(count: videoCount, sizeBytes: videoSize),
                 photoStats: CategoryStats(count: photoCount, sizeBytes: photoSize)
             )
-            
-            DispatchQueue.main.async {
-                completion(result)
+            DispatchQueue.main.async { completion(result) }
+        }
+    }
+    
+    private func findDuplicates(in assets: PHFetchResult<PHAsset>) -> [[PHAsset]] {
+        var grouped = [String: [PHAsset]]()
+        assets.enumerateObjects { asset, _, _ in
+            guard let date = asset.creationDate else { return }
+            let key = "\(Int(date.timeIntervalSince1970))_\(asset.pixelWidth)_\(asset.pixelHeight)"
+            grouped[key, default: []].append(asset)
+        }
+        return grouped.values.filter { $0.count > 1 }
+    }
+    
+    private func findSimilar(in assets: PHFetchResult<PHAsset>, threshold: TimeInterval) -> [[PHAsset]] {
+        var result: [[PHAsset]] = []
+        var current: [PHAsset] = []
+
+        assets.enumerateObjects { asset, _, _ in
+            guard let date = asset.creationDate else { return }
+
+            if let last = current.last?.creationDate,
+               abs(date.timeIntervalSince(last)) < threshold {
+                current.append(asset)
+            } else {
+                if current.count >= 2 { result.append(current) }
+                current = [asset]
             }
         }
+        if current.count >= 2 { result.append(current) }
+        return result
     }
     
-    func getSmartAlbumCount(type: SmartAlbumType) -> Int {
-        let assetSubtype: PHAssetCollectionSubtype
-        
-        switch type {
-        case .screenshots:
-            assetSubtype = .smartAlbumScreenshots
-        case .livePhotos:
-            assetSubtype = .smartAlbumLivePhotos
-        case .screenRecordings:
-            assetSubtype = .smartAlbumScreenRecordings
-        }
-        
-        let collection = PHAssetCollection.fetchAssetCollections(with: .smartAlbum, subtype: assetSubtype, options: nil)
-        
-        if let first = collection.firstObject {
-            let count = PHAsset.fetchAssets(in: first, options: nil).count
-            return count
-        }
-        return 0
-    }
-    
-    func calculateGroupCount(type: GroupAlbum, completion: @escaping (Int) -> Void) {
-        fetchGroupedItems(for: type) { groups in
-            completion(groups.count)
+    private func chunkIntoPairs(assets: [PHAsset]) -> [[GroupAlbumModel]] {
+        stride(from: 0, to: assets.count - 1, by: 2).map { i in
+            let a = assets[i], b = assets[i + 1]
+            cacheAsset(a)
+            cacheAsset(b)
+            return [
+                GroupAlbumModel(id: a.localIdentifier, size: 0, isSelected: false),
+                GroupAlbumModel(id: b.localIdentifier, size: 0, isSelected: true)
+            ]
         }
     }
-    
+}
+
+extension SmartAlbumType {
+    var phSubtype: PHAssetCollectionSubtype {
+        switch self {
+        case .screenshots:      return .smartAlbumScreenshots
+        case .livePhotos:       return .smartAlbumLivePhotos
+        case .screenRecordings: return .smartAlbumScreenRecordings
+        }
+    }
+
+    func fetchCollection() -> PHAssetCollection? {
+        PHAssetCollection
+            .fetchAssetCollections(with: .smartAlbum, subtype: phSubtype, options: nil)
+            .firstObject
+    }
+}
+
+extension PhotoLibraryService {
     struct CategoryStats {
         let count: Int
         let sizeBytes: Int64
-        
+
+        static let empty = CategoryStats(count: 0, sizeBytes: 0)
+
         var formattedSize: String {
-            return ByteCountFormatter.string(fromByteCount: sizeBytes, countStyle: .file)
+            ByteCountFormatter.string(fromByteCount: sizeBytes, countStyle: .file)
         }
     }
-    
+
     struct LibraryBreakdown {
         let videoStats: CategoryStats
         let photoStats: CategoryStats

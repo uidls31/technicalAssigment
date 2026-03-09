@@ -30,6 +30,7 @@ class CustomGroupSelectablePhotoView: UIView {
     }()
     
     var onTap: (() -> Void)?
+    var currentId: String?
     
     override init(frame: CGRect) {
         super.init(frame: .zero)

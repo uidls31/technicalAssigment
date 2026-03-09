@@ -56,6 +56,14 @@ class GroupAlbumCollectionViewCell: UICollectionViewCell {
         setupConstraints()
     }
     
+    override func prepareForReuse() {
+        super.prepareForReuse()
+        leftView.mainImageView.image = nil
+        rightView.mainImageView.image = nil
+        leftView.currentId = nil
+        rightView.currentId = nil
+    }
+    
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }

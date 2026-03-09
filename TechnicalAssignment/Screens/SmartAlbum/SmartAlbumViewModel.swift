@@ -68,10 +68,11 @@ class SmartAlbumViewModel: SmartAlbumViewModelProtocol {
         onUpdateData?()
         onDeleteButtonUpdate?()
         onSelectButtonUpdate?(isAllSelected)
-        photoService.calculateTotalSize(for: albumType) { number in
-            self.totalSizeString = ByteCountFormatter.string(fromByteCount: number, countStyle: .file)
-            self.onUpdateData?()
-            self.updateDeleteButton()
+        photoService.calculateTotalSize(for: albumType) { [weak self] number in
+            guard let self else { return }
+            totalSizeString = ByteCountFormatter.string(fromByteCount: number, countStyle: .file)
+            onUpdateData?()
+            updateDeleteButton()
         }
         
     }
@@ -90,7 +91,7 @@ class SmartAlbumViewModel: SmartAlbumViewModelProtocol {
     
     private func updateDeleteButton() {
         let selectedItems = itemsSmartAlubm.filter { $0.isSelected }
-        let count = itemsSmartAlubm.filter { $0.isSelected }.count
+        let count = selectedItems.count
         
         if count == 0 {
             deleteButtonTitle = "Delete 0 photos"
@@ -129,9 +130,10 @@ class SmartAlbumViewModel: SmartAlbumViewModelProtocol {
         let selectedItems = itemsSmartAlubm.filter({ $0.isSelected }).map { $0.id }
         guard !selectedItems.isEmpty else { return }
         
-        photoService.deleteAssets(with: selectedItems) { success in
+        photoService.deleteAssets(with: selectedItems) { [weak self] success in
+            guard let self else { return }
             if success {
-                self.loadData()
+                loadData()
             }
         }
     }

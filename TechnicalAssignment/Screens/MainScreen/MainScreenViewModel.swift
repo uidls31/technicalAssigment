@@ -15,7 +15,7 @@ protocol MainScreenViewModelProtocol: AnyObject {
 
 class MainScreenViewModel: MainScreenViewModelProtocol {
     
-    let storageService: StorageServiceProtocol
+    private let storageService: StorageServiceProtocol
     var photoLibraryService: PhotoLibraryServiceProtocol
     
     var storageInfoText: String = ""

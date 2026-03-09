@@ -28,6 +28,7 @@ class GroupAlbumViewModel: GroupAlbumViewModelProtocol {
     var deleteButtonTitle: String = "Delete 0 items"
     var isDeleteButtonEnabled: Bool = false
     
+    
     init(groupAlbumType: GroupAlbum,
          photoService: PhotoLibraryServiceProtocol) {
         self.groupAlbumType = groupAlbumType
@@ -35,10 +36,11 @@ class GroupAlbumViewModel: GroupAlbumViewModelProtocol {
     }
     
     func loadData() {
-        photoService.fetchGroupedItems(for: groupAlbumType) { items in
-            self.groups = items
-            self.updateDeleteButtonState()
-            self.onUpdateData?()
+        photoService.fetchGroupedItems(for: groupAlbumType) { [weak self] items in
+            guard let self else { return }
+            groups = items
+            updateDeleteButtonState()
+            onUpdateData?()
         }
     }
     
@@ -90,12 +92,13 @@ class GroupAlbumViewModel: GroupAlbumViewModelProtocol {
     }
     
     private func updateDeleteButtonState() {
-        var count = 0
-        for group in groups {
-            for item in group where item.isSelected {
-                count += 1
-            }
-        }
+//        var count = 0
+//        for group in groups {
+//            for item in group where item.isSelected {
+//                count += 1
+//            }
+//        }
+        let count = groups.flatMap { $0 }.filter { $0.isSelected }.count
         
         if count == 0 {
             deleteButtonTitle = "Delete"
@@ -132,26 +135,34 @@ class GroupAlbumViewModel: GroupAlbumViewModelProtocol {
         
         let leftItem = pair[0]
         let rightItem = pair[1]
+        let leftId = leftItem.id
+        let rightId = rightItem.id
         cell.countingDuplicateLabel.text = "2 Duplicates"
         
         let isAllSelected = pair.allSatisfy { $0.isSelected }
-        let btnTitle = isAllSelected ? "Deselect All" : "Select All"
         UIView.performWithoutAnimation {
-            cell.selectedAllButton.setTitle(btnTitle, for: .normal)
+            cell.selectedAllButton.setTitle(isAllSelected ? "Deselect All" : "Select All", for: .normal)
             cell.selectedAllButton.layoutIfNeeded()
         }
         
+        cell.leftView.currentId = leftId       // ← сначала устанавливаем id
         cell.leftView.updateSelectedImage(isSelected: leftItem.isSelected)
         cell.leftView.hideBestImage(isHidden: false)
-        self.requestImage(for: leftItem.id) { image in
-            cell.leftView.mainImageView.image = image
+        
+
+        
+        self.requestImage(for: leftItem.id) { [weak cell] image in
+            guard cell?.leftView.currentId == leftId else { return }
+            cell?.leftView.mainImageView.image = image
         }
         
+        cell.rightView.currentId = rightId
         cell.rightView.updateSelectedImage(isSelected: rightItem.isSelected)
         cell.rightView.hideBestImage(isHidden: true)
         
-        self.requestImage(for: rightItem.id) { image in
-            cell.rightView.mainImageView.image = image
+        self.requestImage(for: rightId) { [weak cell] image in
+            guard cell?.rightView.currentId == rightId else { return }
+            cell?.rightView.mainImageView.image = image
         }
         
         cell.leftView.onTap = { [weak self] in
