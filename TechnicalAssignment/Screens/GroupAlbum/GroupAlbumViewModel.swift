@@ -92,12 +92,6 @@ class GroupAlbumViewModel: GroupAlbumViewModelProtocol {
     }
     
     private func updateDeleteButtonState() {
-//        var count = 0
-//        for group in groups {
-//            for item in group where item.isSelected {
-//                count += 1
-//            }
-//        }
         let count = groups.flatMap { $0 }.filter { $0.isSelected }.count
         
         if count == 0 {
@@ -145,7 +139,7 @@ class GroupAlbumViewModel: GroupAlbumViewModelProtocol {
             cell.selectedAllButton.layoutIfNeeded()
         }
         
-        cell.leftView.currentId = leftId       // ← сначала устанавливаем id
+        cell.leftView.currentId = leftId
         cell.leftView.updateSelectedImage(isSelected: leftItem.isSelected)
         cell.leftView.hideBestImage(isHidden: false)
         
